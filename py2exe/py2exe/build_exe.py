@@ -22,17 +22,6 @@
 ##
 
 # $Log$
-# Revision 1.3  2002/02/01 12:43:26  theller
-# Hopefully a better way to import the script with less side-effects.
-# Approaching version 0.3.1.
-#
-# Revision 1.2  2002/02/01 10:50:32  theller
-# Did still try to import py2exe instead of build_exe.
-# Found by Peter Goode. Thanks!
-#
-# Revision 1.1  2002/01/30 08:56:20  theller
-# Renamed from previous py2exe.py
-#
 # Revision 1.43  2002/01/29 09:31:46  theller
 # version 0.3.0
 #
@@ -74,7 +63,7 @@ windows programs from scripts."""
 
 __revision__ = "$Id$"
 
-__version__ = "0.3.3"
+__version__ = "0.3.0"
 
 import sys, os, string
 from distutils.core import Command
@@ -154,7 +143,7 @@ class py2exe (Command):
         self.force = 0
         self.debug = None
 
-##        self.ascii = None
+        self.ascii = None
 
         self.windows = None
         self.console = None
@@ -291,11 +280,7 @@ class py2exe (Command):
         extra_path = [os.path.abspath(os.path.normpath(install.install_lib))]
 
         if self.service:
-            # avoid warnings when freezing a service
-            self.excludes.append("servicemanager")
-
-            # so that tracebacks are printed to the registry
-            self.includes.append("traceback")
+            self.excludes.append("servicemanager") # avoid warnings when freezing a service
 
         # Problems with modulefinder:
         # Some extensions import python modules,
@@ -340,31 +325,14 @@ class py2exe (Command):
 ##            "odbc": ["dbi"],
 
             "multiarray": ["_numpy"],
-            "xml.sax": ["xml.sax.expatreader"],
 
-##            "xml.dom": ["HierarchyRequestErr"],
             }
 
         mod_attrs = {
-## Hmm. These are module which are automatically available
-## when wxPython is imported.
-## Maybe when wxPythin is detected, these should go into mf.excludes?
             "wxPython": ["miscc", "windowsc", "streamsc", "gdic", "sizersc", "controls2c",
                          "printfwc", "framesc", "stattoolc", "misc2c", "controlsc",
                          "windows2c", "eventsc", "windows3c", "clip_dndc", "mdic",
                          "imagec", "cmndlgsc", "filesysc"],
-##            "gnosis.xml.pickle": ["XMLUnpicklingError"],
-##            "gnosis.xml.pickle.ext": ["add_xml_helper", "XMLP_Helper"],
-##            "gnosis.xml.pickle.util": ["subnodes", "setParanoia",
-##                                       "setDeepCopy", "getDeepCopy",
-##                                       "_klass", "get_class_from_stack",
-##                                       "add_class_to_store", "get_class_from_store",
-##                                       "getExcludeParentAttr", "safe_eval", "safe_content",
-##                                       "get_class_full_search", "_EmptyClass",
-##                                       "remove_class_from_store", "unsafe_string",
-##                                       "get_class_from_vapor", "unsafe_content",
-##                                       "getParanoia", "safe_string", "_module"],
-####            "gnosis.xml.pickle.doc": ["__version__"],
             }
 
         from tools.modulefinder import ModuleFinder, AddPackagePath
@@ -383,8 +351,6 @@ class py2exe (Command):
             self.announce("+----------------------------------------------------")
             self.announce("| Processing script %s with py2exe-%s" % (script, __version__))
             self.announce("+----------------------------------------------------")
-
-            self.script = script
 
             script_base = os.path.splitext(os.path.basename(script))[0]
             final_dir = os.path.join(self.dist_dir, script_base)
@@ -423,7 +389,8 @@ class py2exe (Command):
                         ] + self.excludes
             mf = ModuleFinder(path=extra_path + sys.path,
                               debug=0,
-                              excludes=excludes)
+                              excludes=excludes,
+                              mod_attrs=mod_attrs)
 
             for f in self.support_modules():
                 mf.load_file(f)
@@ -870,11 +837,8 @@ class py2exe (Command):
 
 
     def get_service_names(self):
-        # import the script without too many sideeffects
-        import new
-        mod = new.module("__service__")
-        exec compile(open(self.script).read(), self.script, "exec") in mod.__dict__
-
+        file, pathname, desc = imp.find_module("__service__", [self.collect_dir])
+        mod = imp.load_module("__service__", file, pathname, desc)
         klass = getattr(mod, self.service)
         return klass._svc_name_, klass._svc_display_name_
 
@@ -1072,7 +1036,7 @@ def byte_compile(py_files, optimize=0, force=0,
         if not dry_run:
             script = open(script_name, "w")
             script.write("""\
-from py2exe.build_exe import byte_compile, Module
+from py2exe.py2exe import byte_compile, Module
 files = [
 """)
 
